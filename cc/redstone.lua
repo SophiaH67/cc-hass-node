@@ -2,17 +2,8 @@ local homeassistant = require("homeassistant")
 
 homeassistant.register_sensor("redstone_left", "Redstone Left", "number", function(value)
 	print("Redstone left: " .. value)
-	-- Convert value to a number
-	value = tonumber(value)
-	if value > 15 then
-		value = 15
-	end
-	if value < 0 then
-		value = 0
-	end
-
-	redstone.setAnalogOutput("left", value)
-end, nil, nil, nil)
+	redstone.setAnalogOutput("left", tonumber(value))
+end, nil, nil, nil, 0, 15)
 
 function watch_redstone()
 	while true do

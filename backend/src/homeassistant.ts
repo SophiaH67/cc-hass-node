@@ -94,6 +94,8 @@ export class HassEntity {
     private device_class?: HassDeviceClasses | undefined,
     private value_template?: string | undefined,
     private command_template?: string | undefined,
+    private min?: number | undefined,
+    private max?: number | undefined,
     private ws?: WebSocket
   ) {
     homeassistant.publish(
@@ -133,10 +135,12 @@ export class HassEntity {
       unique_id: this.unique_id,
       device_class: this.device_class,
       state_topic: this.stateTopic,
-      command_topic: this.readonly ? undefined : this.commandTopic,
+      command_topic: this.readonly ? "/hakos/balls" : this.commandTopic, // Idk why this is required, especially when something can be readonly
       availability_topic: this.availabilityTopic,
       value_template: this.value_template,
       command_template: this.readonly ? undefined : this.command_template,
+      min: this.min,
+      max: this.max,
       device: {
         identifiers: `computercraft-${this.computerId}`,
         name: this.computerLabel,

@@ -80,7 +80,17 @@ end
 
 -- value_callback can be nil, when not nil, homeassistant will be
 -- informed that it cannot be written to
-local function register_sensor(id, label, type, value_callback, device_class, value_template, command_template)
+local function register_sensor(
+	id,
+	label,
+	type,
+	value_callback,
+	device_class,
+	value_template,
+	command_template,
+	min,
+	max
+)
 	if homeassistant.running then
 		return false, "can only register sensors before initialization"
 	end
@@ -93,6 +103,8 @@ local function register_sensor(id, label, type, value_callback, device_class, va
 		device_class = device_class,
 		value_template = value_template,
 		command_template = command_template,
+		min = min,
+		max = max,
 	}
 	homeassistant.sensors[#homeassistant.sensors + 1] = sensor
 	homeassistant.value_callbacks[id] = value_callback

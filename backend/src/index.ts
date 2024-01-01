@@ -31,6 +31,8 @@ class Computer {
         sensor.device_class,
         sensor.value_template,
         sensor.command_template,
+        sensor.min,
+        sensor.max,
         ws
       );
       this.sensors.push(entity);
