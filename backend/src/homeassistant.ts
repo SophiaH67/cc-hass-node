@@ -3,7 +3,9 @@ import mqtt from "mqtt";
 import { WebSocket } from "ws";
 import { StCValue } from "./messages/Value";
 
-const homeassistant = mqtt.connect("mqtt://localhost:1883");
+const homeassistant = mqtt.connect(
+  process.env.MQTT_URL ?? "mqtt://localhost:1883"
+);
 
 export type HassDeviceClasses =
   | "date"
