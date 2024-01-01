@@ -2,6 +2,7 @@ import { WebSocketServer, WebSocket } from "ws";
 import { CtSHello, StCHello } from "./messages/Hello";
 import { HassEntity } from "./homeassistant";
 import { CtSBaseMessage } from "./messages/index";
+import { CtSValue } from "./messages/Value";
 
 const wss = new WebSocketServer({ port: 8080 });
 
@@ -9,8 +10,8 @@ const wss = new WebSocketServer({ port: 8080 });
 const clients = new Map<number, Computer>();
 
 class Computer {
-  private id: number;
-  private label: string;
+  public readonly id: number;
+  public readonly label: string;
   private sensors: HassEntity[];
 
   constructor(public ws: WebSocket, message: CtSHello) {
@@ -34,15 +35,19 @@ class Computer {
     await Promise.all(this.sensors.map((s) => s.destroy()));
     clients.delete(this.id);
   }
+
+  public getSensor(id: string) {
+    return this.sensors.find((s) => s.id === id);
+  }
 }
 
 wss.on("connection", function connection(ws) {
+  let client: Computer | undefined;
   console.log("New connection");
   ws.on("error", console.error);
 
   ws.on("message", async function message(data) {
     const message = JSON.parse(data.toString()) as CtSBaseMessage;
-    let client: Computer | undefined;
 
     switch (message.type) {
       case "hello":
@@ -53,11 +58,23 @@ wss.on("connection", function connection(ws) {
         }
 
         client = new Computer(ws, hello);
+        console.log(`Registered computer ${client.id} (${client.label})`);
         break;
+
+      case "value":
+        if (!client) throw new Error("Client not registered");
+        const value = message as CtSValue;
+        const entity = client!.getSensor(value.sensorId);
+        if (entity) await entity.setValue(value.value);
+        else
+          throw new Error(
+            `Computer ${client.id} (${client.label}) tried to set value for unknown sensor ${value.sensorId}`
+          );
     }
   });
 
   ws.on("close", async function close() {
+    console.log("Connection closed");
     for (const [_, client] of clients.entries()) {
       if (client.ws === ws) {
         await client.destroy();

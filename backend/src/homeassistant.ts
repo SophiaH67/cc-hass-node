@@ -90,6 +90,10 @@ export class HassEntity {
     homeassistant.publish(this.availabilityTopic, "online");
   }
 
+  public get id() {
+    return this.unique_id;
+  }
+
   public async destroy() {
     await homeassistant.publishAsync(this.availabilityTopic, "offline");
   }
