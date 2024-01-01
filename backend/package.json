@@ -16,6 +16,8 @@
     "typescript": "^5.3.3"
   },
   "scripts": {
-    "start:dev": "nodemon"
+    "start:dev": "nodemon",
+    "start:prod": "node dist/index.js",
+    "build": "tsc"
   }
 }
