@@ -1,50 +1,68 @@
 import { WebSocketServer, WebSocket } from "ws";
-import { CtSBaseMessage } from "./messages";
-import { StCHello } from "./messages/Hello";
+import { CtSHello, StCHello } from "./messages/Hello";
 import { HassEntity } from "./homeassistant";
+import { CtSBaseMessage } from "./messages/index";
 
 const wss = new WebSocketServer({ port: 8080 });
 
-interface Computer {
-  ws: WebSocket;
-  id: number;
-  label: string;
-  // sensors
+// Map of computers; key is the computer's ID, value is the WebSocket
+const clients = new Map<number, Computer>();
+
+class Computer {
+  private id: number;
+  private label: string;
+  private sensors: HassEntity[];
+
+  constructor(public ws: WebSocket, message: CtSHello) {
+    this.id = message.computerId;
+    this.label = message.computerLabel;
+    this.sensors = [];
+
+    for (const sensor of message.sensors) {
+      const entity = new HassEntity(sensor.label, sensor.type, sensor.id);
+      this.sensors.push(entity);
+    }
+
+    if (clients.has(this.id))
+      throw new Error(`Computer ${this.id} is already registered`);
+
+    clients.set(this.id, this);
+  }
+
+  public async destroy() {
+    this.ws.close();
+    await Promise.all(this.sensors.map((s) => s.destroy()));
+    clients.delete(this.id);
+  }
 }
 
-function waitForEnter() {
-  return new Promise((resolve) => {
-    process.stdin.once("data", () => {
-      resolve(1);
-    });
+wss.on("connection", function connection(ws) {
+  console.log("New connection");
+  ws.on("error", console.error);
+
+  ws.on("message", async function message(data) {
+    const message = JSON.parse(data.toString()) as CtSBaseMessage;
+    let client: Computer | undefined;
+
+    switch (message.type) {
+      case "hello":
+        const hello = message as CtSHello;
+        if (clients.has(hello.computerId)) {
+          const existing = clients.get(hello.computerId)!;
+          await existing.destroy();
+        }
+
+        client = new Computer(ws, hello);
+        break;
+    }
   });
-}
 
-
-
-// // Map of computers; key is the computer's ID, value is the WebSocket
-// const clients = new Map<number, Computer>();
-
-// wss.on("connection", function connection(ws) {
-//   ws.on("error", console.error);
-
-//   ws.on("message", function message(data) {
-//     const message = JSON.parse(data.toString()) as CtSBaseMessage;
-
-//     switch (message.type) {
-//       case "hello":
-//         clients.set(message.computerId, ws);
-//         ws.send(
-//           JSON.stringify({
-//             type: "hello",
-//             ok: true,
-//           } as StCHello)
-//         );
-//         break;
-//     }
-//   });
-
-//   ws.on("open", function open() {
-//     console.log(`Client connected from ${ws.url}`);
-//   });
-// });
+  ws.on("close", async function close() {
+    for (const [_, client] of clients.entries()) {
+      if (client.ws === ws) {
+        await client.destroy();
+        break;
+      }
+    }
+  });
+});
