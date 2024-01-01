@@ -1,5 +1,5 @@
 import { WebSocketServer, WebSocket } from "ws";
-import { CtSHello, StCHello } from "./messages/Hello";
+import { CtSHello } from "./messages/Hello";
 import { HassEntity } from "./homeassistant";
 import { CtSBaseMessage } from "./messages/index";
 import { CtSValue } from "./messages/Value";
@@ -20,7 +20,19 @@ class Computer {
     this.sensors = [];
 
     for (const sensor of message.sensors) {
-      const entity = new HassEntity(sensor.label, sensor.type, sensor.id);
+      const entity = new HassEntity(
+        this.id,
+        this.label,
+        message.computerModel,
+        sensor.label,
+        sensor.type,
+        sensor.id,
+        sensor.readonly,
+        sensor.device_class,
+        sensor.value_template,
+        sensor.command_template,
+        ws
+      );
       this.sensors.push(entity);
     }
 
@@ -37,7 +49,7 @@ class Computer {
   }
 
   public getSensor(id: string) {
-    return this.sensors.find((s) => s.id === id);
+    return this.sensors.find((s) => s.non_unique_id === id);
   }
 }
 

@@ -26,10 +26,26 @@ local function run()
 	until url == url
 
 	-- Send our hello message
+	local computer_model
+	if turtle then
+		if term.isColor() then
+			computer_model = "Advanced_Turtle"
+		else
+			computer_model = "Basic_Turtle"
+		end
+	else
+		if term.isColor() then
+			computer_model = "Advanced_Computer"
+		else
+			computer_model = "Basic_Computer"
+		end
+	end
+
 	hello = {
 		type = "hello",
 		computerId = os.getComputerID(),
 		computerLabel = os.getComputerLabel(),
+		computerModel = computer_model,
 		sensors = homeassistant.sensors,
 	}
 
@@ -42,17 +58,21 @@ local function run()
 	homeassistant.running = true
 
 	while true do
-		local event, url, ws, message = os.pullEvent("websocket_message")
+		local event, url, message
+		repeat
+			event, url, message = os.pullEvent("websocket_message")
+		until url == url
 
-		print("Got message: " .. message)
 		message = textutils.unserializeJSON(message)
 
 		if message.type == "value" then
-			local callback = homeassistant.value_callbacks[message.id]
+			local callback = homeassistant.value_callbacks[message.sensorId]
 			if callback then
+				print("Got message")
+				print(textutils.serializeJSON(message))
 				callback(message.value)
 			else
-				print("No callback for sensor " .. message.id)
+				print("No callback for sensor " .. message.sensorId)
 			end
 		end
 	end
@@ -60,7 +80,7 @@ end
 
 -- value_callback can be nil, when not nil, homeassistant will be
 -- informed that it cannot be written to
-local function register_sensor(id, label, type, value_callback)
+local function register_sensor(id, label, type, value_callback, device_class, value_template, command_template)
 	if homeassistant.running then
 		return false, "can only register sensors before initialization"
 	end
@@ -69,6 +89,10 @@ local function register_sensor(id, label, type, value_callback)
 		id = id,
 		label = label,
 		type = type,
+		readonly = value_callback == nil,
+		device_class = device_class,
+		value_template = value_template,
+		command_template = command_template,
 	}
 	homeassistant.sensors[#homeassistant.sensors + 1] = sensor
 	homeassistant.value_callbacks[id] = value_callback

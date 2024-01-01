@@ -1,9 +1,11 @@
 import "dotenv/config";
 import mqtt from "mqtt";
+import { WebSocket } from "ws";
+import { StCValue } from "./messages/Value";
 
 const homeassistant = mqtt.connect("mqtt://localhost:1883");
 
-type HassDeviceClasses =
+export type HassDeviceClasses =
   | "date"
   | "enum"
   | "timestamp"
@@ -55,6 +57,12 @@ type HassDeviceClasses =
   | "weight"
   | "wind_speed";
 
+const commandTopicCallbackMap = new Map<string, (value: string) => void>();
+homeassistant.on("message", (topic, message) => {
+  const callback = commandTopicCallbackMap.get(topic);
+  if (callback) callback(message.toString());
+});
+
 /**
  * This class is used to create a Home Assistant entity.
  *
@@ -76,26 +84,47 @@ type HassDeviceClasses =
  */
 export class HassEntity {
   constructor(
+    private computerId: number,
+    private computerLabel: string,
+    private computerModel: string,
     private hass_name: string,
     private sensor_type: string,
-    private unique_id: string,
+    public non_unique_id: string,
+    private readonly: boolean = false,
     private device_class?: HassDeviceClasses | undefined,
     private value_template?: string | undefined,
-    private command_template?: string | undefined
+    private command_template?: string | undefined,
+    private ws?: WebSocket
   ) {
     homeassistant.publish(
       this.introductionTopic,
       JSON.stringify(this.hassIntroductionMessage)
     );
     homeassistant.publish(this.availabilityTopic, "online");
+    homeassistant.subscribe(this.commandTopic);
+    commandTopicCallbackMap.set(this.commandTopic, (value) => {
+      if (!this.ws)
+        throw new Error("No websocket provided while requested to send value");
+
+      const valueMessage: StCValue = {
+        sensorId: this.non_unique_id,
+        type: "value",
+        value,
+      };
+      this.ws.send(JSON.stringify(valueMessage));
+    });
   }
 
-  public get id() {
-    return this.unique_id;
+  public get unique_id() {
+    return `computer${this.computerId}_${this.non_unique_id}`;
   }
 
   public async destroy() {
-    await homeassistant.publishAsync(this.availabilityTopic, "offline");
+    commandTopicCallbackMap.delete(this.commandTopic);
+    await Promise.all([
+      homeassistant.unsubscribeAsync(this.commandTopic),
+      homeassistant.publishAsync(this.availabilityTopic, "offline"),
+    ]);
   }
 
   private get hassIntroductionMessage() {
@@ -104,10 +133,16 @@ export class HassEntity {
       unique_id: this.unique_id,
       device_class: this.device_class,
       state_topic: this.stateTopic,
-      command_topic: this.commandTopic,
+      command_topic: this.readonly ? undefined : this.commandTopic,
       availability_topic: this.availabilityTopic,
       value_template: this.value_template,
-      command_template: this.command_template,
+      command_template: this.readonly ? undefined : this.command_template,
+      device: {
+        identifiers: `computercraft-${this.computerId}`,
+        name: this.computerLabel,
+        model: this.computerModel,
+        manufacturer: "ComputerCraft",
+      },
     };
   }
 

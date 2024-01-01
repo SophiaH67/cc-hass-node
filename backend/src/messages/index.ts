@@ -1,6 +1,6 @@
-import { CtSHello, StCHello } from "./Hello";
+import { CtSHello } from "./Hello";
 import { CtSValue, StCValue } from "./Value";
 
 export type CtSBaseMessage = CtSHello | CtSValue;
 
-export type StCBaseMessage = StCHello | StCValue;
+export type StCBaseMessage = StCValue;
