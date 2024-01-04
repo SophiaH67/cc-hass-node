@@ -3,7 +3,7 @@ local homeassistant = {
 	sensors = {},
 	value_callbacks = {}, -- { sensor_id = callback }
 }
-local url = "wss://likes-murray-bd-systematic.trycloudflare.com"
+local url = "wss://hass-bridge.create.roboco.dev"
 
 local function run()
 	if homeassistant.running then
